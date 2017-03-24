@@ -1,0 +1,6 @@
+<launch>
+
+ 
+	<node pkg="rviz" type="rviz" name="lab3_rviz" args = "-d $(find lab3_wes)/launch/lab3.rviz"/>
+
+</launch>
