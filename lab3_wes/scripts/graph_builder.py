@@ -46,6 +46,7 @@ class GraphBuilder():
         self.wp_pub = rospy.Publisher('/waypoints', visualization_msgs.msg.MarkerArray, queue_size=5)
         self.edge_pub = rospy.Publisher('/edges', visualization_msgs.msg.MarkerArray, queue_size=5)
         self.clear_pub = rospy.Publisher('/visualization_marker', visualization_msgs.msg.Marker, queue_size=5)
+        self.plan_pub = rospy.Publisher('/plan', visualization_msgs.msg.Marker, queue_size=5)
 
     def MapCallback(self, msg):
         if self.processed:
@@ -53,6 +54,10 @@ class GraphBuilder():
 
         self.map = msg
         self.meta = msg.info
+
+        for i in range(0, len(self.waypoints)):
+            self.waypoints[i][0] = self.waypoints[i][0] + self.meta.origin.position.x
+            self.waypoints[i][1] = self.waypoints[i][1] + self.meta.origin.position.y
 
     def ProcessMap(self):
         self.ClearRViz()
@@ -368,44 +373,128 @@ class GraphBuilder():
                 min_index = pt[0]
 
         return min_index
+ 
 
+    # return true if found
+    def findIndexIn4ValArray(planning_points, indexToFind):
+
+        for (ind, pt, prevInd, cost) in planning_points:
+            if ind == indexToFind:
+                return True
+
+        return False
+
+
+    # Returns Optimal Path
     def AStar(self, start, end):
 
         start_ind = self.GetClosestPlanningPoint(start)
         end_ind = self.GetClosestPlanningPoint(end)
 
+        ind0, pt0, prevInd0, _cost0 = self.planning_points[start_ind]
         ind3, pt3, prevInd3, _cost3 = self.planning_points[end_ind]
 
-        open_set = []
+        total_set = self.planning_points
         closed_set = []
 
         open_set.append(self.planning_points[start_ind])
+        
+        ####################
+        pQueue = queue.PriorityQueue()
 
-        best_ind = start_ind
+        curr_ind = start_ind
+        curr_dist = 0 # dist to reach current vertex
+        curr_queueCost = distanceBetweenPoints(pt3, pt0)
 
-        while best_ind is not end_ind:
+        optimalPath = []
+        optimalPathCost = 0
+        while curr_ind is not end_ind:
 
-            neighbourNodes = []
-            # search through all the edges linked to the current point
-            for (x, y) in self.planning_edges:
-
-                if x == best_ind:
-                    neighbourNodes.put(y)
-                else if y == best_ind:
-                    neighbourNodes.put(x)
-
+            # generate the neighbour node
+            neighbourNodes = GetNeighbours(best_ind)
+            
             ind1, pt1, prevInd1, _cost1 = self.planning_points[best_ind]
 
+            # For each neighbour node
             for neighbourNode in neighbourNodes:
-                ind2, pt2, prevInd2, _cost2 = self.planning_points[neighbourNode]
+                ind2, pt2, _prevInd2, _cost2 = self.planning_points[neighbourNode]
 
-                distToGoal2 = distanceBetweenPoints(pt3, pt2)
+                if findIndexIn4ValArray(closed_set, ind2):
+                    continue
+
+                distToGoal = distanceBetweenPoints(pt3, pt2)
 
                 # SET COST
-                cost = distToGoal2
+                heuristicOfNeighbour = distToGoal2
+
+                distToNeighbour = distanceBetweenPoints(pt2, pt1)
+
+                cost = heuristicOfNeighbour + distToNeighbour
+
+                if cost < lowestCost:
+                    lowestCost = cost
+                    lowestIndex = ind2
+
+
+                next_dist = distToNeighbour + curr_dist
+                pQueue.put((queueCost, ind2, next_dist))
+
+                #put in closed_set
+                closed_set.put((ind2, pt2, _prevInd2, _cost2))
+            
+            # Get curr_ind for next loop
+            curr_queueCost, curr_ind, curr_dist = pQueue.get()
+            optimalPathCost.put(curr_ind)
+            optimalPathCost += cost
+
+        ### End While
+
+        print("Found Optimal Path with cost of [%d]" % optimalPathCost)
+
+        return optimalPath
+
+    def VisualizePlan(self, path):
+        msg = visualization_msgs.msg.Marker()
+        mark_index = 0
+        stamp = rospy.Time.now()
+
+        scale = geometry_msgs.msg.Vector3()
+        scale.x = 0.03
+        scale.y = 0.03
+        scale.z = 0.03
+
+        color = std_msgs.msg.ColorRGBA()
+        color.r = 0
+        color.g = 1
+        color.b = 0
+        color.a = 1.0
+
+        msg.header.frame_id = '/my_frame'
+        msg.header.stamp = stamp
+        msg.ns = 'plan'
+        msg.id = mark_index
+        msg.type = visualization_msgs.msg.Marker.LINE_STRIP
+        msg.action = visualization_msgs.msg.Marker.ADD
+        msg.color = color
+        msg.scale = scale
+
+        for p in path:
+
+            start = self.waypoints[edge[0]]
+            end = self.waypoints[edge[1]]
+
+            wp = self.planning_points[p]
+
+            point = geometry_msgs.msg.Point
+            point.x = wp[1][0]
+            point.y = wp[1][1]
+            point.z = 0.2s
+
+            marker.points.append(point)
 
 
 
+        self.plans_pub.publish(msg)
 
 
     def distanceBetweenPoints(pt1, pt2):
@@ -419,6 +508,16 @@ class GraphBuilder():
 
     def GetNeighbours(self, ind):
 
+        neighbourNodes = []
+        # search through all the edges linked to the current point
+        for (x, y) in self.planning_edges:
+
+            if x == ind:
+                neighbourNodes.put(y)
+            else if y == ind:
+                neighbourNodes.put(x)
+
+        return neighbourNodes
 
 
 
