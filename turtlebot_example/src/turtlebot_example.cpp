@@ -30,7 +30,7 @@ void pose_callback(const geometry_msgs::PoseWithCovarianceStamped & msg)
 	double X = msg.pose.pose.position.x; // Robot X psotition
 	double Y = msg.pose.pose.position.y; // Robot Y psotition
  	double Yaw = tf::getYaw(msg.pose.pose.orientation); // Robot Yaw
-
+  drawPoint(1,x,y);
 	std::cout << "X: " << X << ", Y: " << Y << ", Yaw: " << Yaw << std::endl ;
 }
 
@@ -93,6 +93,28 @@ void drawLineSegment(int k, geometry_msgs::Point start_point, geometry_msgs::Poi
    marker_pub.publish(lines);
 }
 
+//Example of drawing a curve
+void drawPoint(int k, double x, double y, double z)
+{
+   // Curves are drawn as a series of stright lines
+   // Simply sample your curves into a series of points
+   visualization_msgs::Marker thePoints;
+   thePoints.header.frame_id = "/odom";
+   thePoints.id = k; //each curve must have a unique id or you will overwrite an old ones
+   thePoints.type = visualization_msgs::Marker::POINTS;
+   thePoints.scale.x = 0.1;
+   thePoints.scale.y = 0.1;
+   thePoints.color.r = 1.0f ;
+   thePoints.color.a = 1.0;
+   //generate curve points
+   geometry_msgs::Point p;
+   p.x = x;
+   p.y = y;
+   p.z = 0; //not used
+   thePoints.points.push_back(p);
+   //publish new curve
+   marker_pub.publish(thePoints);
+}
 //Callback function for the map
 void map_callback(const nav_msgs::OccupancyGrid& msg)
 {

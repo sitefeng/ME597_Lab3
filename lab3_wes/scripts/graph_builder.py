@@ -351,6 +351,7 @@ class GraphBuilder():
         index = 0
 
         for pt in self.waypoints:
+            # index of point, (x,y), back_trace_index, cost
             self.planning_points.put((index, pt, -1, 0))
 
         self.planning_edges = self.edges
@@ -373,6 +374,7 @@ class GraphBuilder():
         start_ind = self.GetClosestPlanningPoint(start)
         end_ind = self.GetClosestPlanningPoint(end)
 
+        ind3, pt3, prevInd3, _cost3 = self.planning_points[end_ind]
 
         open_set = []
         closed_set = []
@@ -381,8 +383,38 @@ class GraphBuilder():
 
         best_ind = start_ind
 
-        while best_index is not end_ind:
-            pass
+        while best_ind is not end_ind:
+
+            neighbourNodes = []
+            # search through all the edges linked to the current point
+            for (x, y) in self.planning_edges:
+
+                if x == best_ind:
+                    neighbourNodes.put(y)
+                else if y == best_ind:
+                    neighbourNodes.put(x)
+
+            ind1, pt1, prevInd1, _cost1 = self.planning_points[best_ind]
+
+            for neighbourNode in neighbourNodes:
+                ind2, pt2, prevInd2, _cost2 = self.planning_points[neighbourNode]
+
+                distToGoal2 = distanceBetweenPoints(pt3, pt2)
+
+                # SET COST
+                cost = distToGoal2
+
+
+
+
+
+    def distanceBetweenPoints(pt1, pt2):
+        distToGoal_x = pt2[0] - pt1[0]
+        distToGoal_y = pt2[1] - pt1[1]
+
+        distToGoal = sqrt(distToGoal_x**2 + distToGoal_y**2)
+        return distToGoal
+    }
 
 
     def GetNeighbours(self, ind):
