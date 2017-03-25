@@ -23,6 +23,7 @@ ros::Publisher marker_pub;
 #define TAGID 0
 
 //Callback function for the Position topic (LIVE)
+void drawPoint(int k, double x, double y, double z);
 
 void pose_callback(const geometry_msgs::PoseWithCovarianceStamped & msg)
 {
@@ -30,7 +31,7 @@ void pose_callback(const geometry_msgs::PoseWithCovarianceStamped & msg)
 	double X = msg.pose.pose.position.x; // Robot X psotition
 	double Y = msg.pose.pose.position.y; // Robot Y psotition
  	double Yaw = tf::getYaw(msg.pose.pose.orientation); // Robot Yaw
-  drawPoint(1,x,y);
+  drawPoint(1,X,Y, 0);
 	std::cout << "X: " << X << ", Y: " << Y << ", Yaw: " << Yaw << std::endl ;
 }
 

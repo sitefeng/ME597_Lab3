@@ -600,6 +600,23 @@ class GraphBuilder():
 
         self.plan_pub.publish(msg)
 
+    def PublishPath(self, path):
+
+        pose_array_msg = geometry_msgs.PoseArray()
+        pose_array = []
+        for pt in path:
+            curr_pose = geometry_msgs.Pose()
+            curr_pose.position.x = pt.x
+            curr_pose.position.y = pt.y
+
+            pose_array.append(curr_pose)
+
+        pose_array_msg.poses = pose_array
+
+        self.plan_array_pub.publish(pose_array_msg)
+        
+
+
     def main(self):
         while not rospy.is_shutdown():
             time.sleep(0.2)
@@ -608,10 +625,13 @@ class GraphBuilder():
                 self.ProcessMap()
                 self.PreProcessPlan()
                 print("Pre-Processed; Starting A*")
+
                 if self.goalChanged:
-                    path = self.AStar((4, 0), (8, -4))
+                    path = self.AStar(self.startPoint, self.endPoint)
                     self.VisualizePlan(path)
-                print('Visualized Plan')
+                    
+                    self.PublishPath(path)
+                    print('Visualized Plan')
 
 if __name__ == "__main__":
     
