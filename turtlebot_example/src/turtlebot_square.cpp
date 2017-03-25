@@ -229,8 +229,14 @@ void pose_callback(geometry_msgs::PoseWithCovarianceStamped msg)
 
 void odom_callback(nav_msgs::Odometry msg)
 {
-  float v_forward = msg.twist.linear.x;
-  float w = msg.twist.angular.z;
+  float v_forward = msg.twist.twist.linear.x;
+  float w = msg.twist.twist.angular.z;
+  float dt =0.02; // seconds
+
+  est_x = est_x + dt * v_forward * cos(est_yaw);
+  est_y = est_y + dt * v_forward * sin(est_yaw);
+
+  est_yaw = est_yaw + dt*w;
 }
 
 
