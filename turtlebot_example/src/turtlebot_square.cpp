@@ -39,6 +39,29 @@ bool have_waypoints = false;
 ros::Time last_time;
 
 ros::Publisher goal_pub;
+ros::Publisher marker_pub;
+
+void drawPoint()
+{
+   // Curves are drawn as a series of stright lines
+   // Simply sample your curves into a series of points
+   visualization_msgs::Marker thePoints;
+   thePoints.header.frame_id = "/map";
+   thePoints.id = 0; //each curve must have a unique id or you will overwrite an old ones
+   thePoints.type = visualization_msgs::Marker::POINTS;
+   thePoints.scale.x = 0.1;
+   thePoints.scale.y = 0.1;
+   thePoints.color.r = 1.0f ;
+   thePoints.color.a = 1.0;
+   //generate curve points
+   geometry_msgs::Point p;
+   p.x = est_x;
+   p.y = est_y;
+   p.z = 0.5; //not used
+   thePoints.points.push_back(p);
+   //publish new curve
+   marker_pub.publish(thePoints);
+}
 
 struct Waypoint
 {
@@ -291,7 +314,7 @@ int main(int argc, char **argv)
 	ros::Publisher velocity_publisher = n.advertise<geometry_msgs::Twist>("/cmd_vel_mux/input/navi", 5);
     
     goal_pub = n.advertise<geometry_msgs::PoseArray>("/goal", 5);
-
+    marker_pub = n.advertise<visualization_msgs::Marker>("/visualization_marker", 5);
     ros::Subscriber plan_sub = n.subscribe("/plan_array", 5, PlanCallback);
 
 	//Velocity control variable
@@ -327,6 +350,8 @@ int main(int argc, char **argv)
 	{
 		loop_rate.sleep(); //Maintain the loop rate
 		ros::spinOnce();   //Check for new messages
+
+    drawPoint();
     
     //ROS_INFO_STREAM("Checking Waypoint");
 		if(have_waypoints && CloseToWaypoint(current_waypoint))
