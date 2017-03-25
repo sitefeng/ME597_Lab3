@@ -55,14 +55,16 @@ class GraphBuilder():
         self.planning_edges = []
 
 
-        self.map_sub = rospy.Subscriber('/map', nav_msgs.msg.OccupancyGrid, callback=self.MapCallback)
         self.occ_pub = rospy.Publisher('/occupied_points', visualization_msgs.msg.MarkerArray, queue_size=5)
         self.wp_pub = rospy.Publisher('/waypoints', visualization_msgs.msg.MarkerArray, queue_size=5)
         self.edge_pub = rospy.Publisher('/edges', visualization_msgs.msg.MarkerArray, queue_size=5)
         self.clear_pub = rospy.Publisher('/visualization_marker', visualization_msgs.msg.Marker, queue_size=5)
         self.plan_pub = rospy.Publisher('/plan', visualization_msgs.msg.Marker, queue_size=5)
 
+        self.map_sub = rospy.Subscriber('/map', nav_msgs.msg.OccupancyGrid, callback=self.MapCallback)
+
         print("Initialized")
+
 
     def MapCallback(self, msg):
         if self.processed:
@@ -74,7 +76,9 @@ class GraphBuilder():
         self.meta = msg.info
 
         for i in range(0, len(self.waypoints)):
-            self.waypoints[i] = (self.waypoints[i][0] + self.meta.origin.position.x, self.waypoints[i][1] + self.meta.origin.position.y)
+            #self.waypoints[i] = (self.waypoints[i][0] + self.meta.origin.position.x, self.waypoints[i][1] + self.meta.origin.position.y)
+            pass
+        
 
     def ProcessMap(self):
         self.ClearRViz()
@@ -82,7 +86,9 @@ class GraphBuilder():
         time.sleep(1)
         self.GetOccupiedPoints()
         print("Got Occupied Points")
+        self.ViewWaypoints(ns='goal', z=0.3, s=0.2)
         self.GetWaypoints()
+        self.ViewWaypoints(ns='waypoints', z=0.05, s=0.05)
         print("Got Waypoints")
         self.GetEdges()
         self.ViewEdges()
@@ -194,14 +200,15 @@ class GraphBuilder():
                     print("Added waypoint %i" % num_waypoints)
 
 
+    def ViewWaypoints(self, ns='waypoints', z=0.05, s=0.05):
         msg = visualization_msgs.msg.MarkerArray()
         mark_index = 0
         stamp = rospy.Time.now()
 
         scale = geometry_msgs.msg.Vector3()
-        scale.x = 0.05
-        scale.y = 0.05
-        scale.z = 0.05
+        scale.x = s
+        scale.y = s
+        scale.z = s
 
         color = std_msgs.msg.ColorRGBA()
         color.r = 0
@@ -213,7 +220,7 @@ class GraphBuilder():
             marker = visualization_msgs.msg.Marker()
             marker.header.frame_id = '/my_frame'
             marker.header.stamp = stamp
-            marker.ns = 'waypoints'
+            marker.ns = ns
             marker.id = mark_index
             marker.type = visualization_msgs.msg.Marker.SPHERE
             marker.action = visualization_msgs.msg.Marker.ADD
@@ -221,7 +228,7 @@ class GraphBuilder():
             pose = geometry_msgs.msg.Pose()
             pose.position.x = wp[0]
             pose.position.y = wp[1]
-            pose.position.z = 0.05
+            pose.position.z = z
             pose.orientation.w = 1.0
             marker.pose = pose
 
@@ -382,12 +389,15 @@ class GraphBuilder():
         min_dist = 999
         min_index = -1
 
+        index=0
         for pt in self.planning_points:
             dist = self.SquareDist(point, pt[1])
             
             if dist < min_dist:
                 min_dist = dist
-                min_index = pt[0]
+                min_index = index
+
+            index = index + 1
 
         return min_index
  
@@ -529,9 +539,9 @@ class GraphBuilder():
         stamp = rospy.Time.now()
 
         scale = geometry_msgs.msg.Vector3()
-        scale.x = 0.03
-        scale.y = 0.03
-        scale.z = 0.03
+        scale.x = 0.05
+        scale.y = 0.05
+        scale.z = 0.05
 
         color = std_msgs.msg.ColorRGBA()
         color.r = 0
@@ -547,24 +557,21 @@ class GraphBuilder():
         msg.action = visualization_msgs.msg.Marker.ADD
         msg.color = color
         msg.scale = scale
+        msg.pose.orientation.w = 1
 
         for p in path:
-
-            start = self.waypoints[edge[0]]
-            end = self.waypoints[edge[1]]
-
             wp = self.planning_points[p]
 
-            point = geometry_msgs.msg.Point
+            point = geometry_msgs.msg.Point()
             point.x = wp[1][0]
             point.y = wp[1][1]
             point.z = 0.2
 
-            marker.points.append(point)
+            msg.points.append(point)
 
 
 
-        self.plans_pub.publish(msg)
+        self.plan_pub.publish(msg)
 
     def main(self):
         while not rospy.is_shutdown():
@@ -574,7 +581,9 @@ class GraphBuilder():
                 self.ProcessMap()
                 self.PreProcessPlan()
                 print("Pre-Processed; Starting A*")
-                self.AStar((4-1, 0-5), (8-1, -4-5))
+                path = self.AStar((4, 0), (8, -4))
+                self.VisualizePlan(path)
+                print('Visualized Plan')
 
 if __name__ == "__main__":
     
