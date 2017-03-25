@@ -47,6 +47,11 @@ class GraphBuilder():
         self.map = None
         self.meta = None
 
+        #Start and Goal
+        self.startPoint = (0,0)
+        self.endPoint = (0,0)
+        self.goalChanged = True
+
         self.occupied = []
         self.waypoints = [(4, 0), (8, -4), (8, 0)]
         self.edges = []
@@ -59,9 +64,13 @@ class GraphBuilder():
         self.wp_pub = rospy.Publisher('/waypoints', visualization_msgs.msg.MarkerArray, queue_size=5)
         self.edge_pub = rospy.Publisher('/edges', visualization_msgs.msg.MarkerArray, queue_size=5)
         self.clear_pub = rospy.Publisher('/visualization_marker', visualization_msgs.msg.Marker, queue_size=5)
+        # for visualization
         self.plan_pub = rospy.Publisher('/plan', visualization_msgs.msg.Marker, queue_size=5)
+        # For plan path
+        self.plan_array_pub = rospy.Publisher('/plan_array', geometry_msg.PoseArray, queue_size=5)
 
         self.map_sub = rospy.Subscriber('/map', nav_msgs.msg.OccupancyGrid, callback=self.MapCallback)
+        self.goal_sub = rospy.Subscriber('/goal', geometry_msg.PoseArray, callback=self.GoalCallback)
 
         print("Initialized")
 
@@ -78,7 +87,25 @@ class GraphBuilder():
         for i in range(0, len(self.waypoints)):
             #self.waypoints[i] = (self.waypoints[i][0] + self.meta.origin.position.x, self.waypoints[i][1] + self.meta.origin.position.y)
             pass
-        
+    
+    def GoalCallback(self, msg):
+        print("Goal New Goal")
+
+        point1 = (msg.poses[0].position.x, msg.poses[0].position.y)
+        point2 = (msg.poses[1].position.x, msg.poses[1].position.y)
+
+        if point1.x == self.startPoint.x and
+           point1.y == self.startPoint.y and
+           point2.x == self.endPoint.x and
+           point2.y == self.endPoint.y:
+
+            self.goalChanged = False
+            
+        else:
+            self.goalChanged = True
+            self.startPoint = point1
+            self.endPoint = point2
+
 
     def ProcessMap(self):
         self.ClearRViz()
@@ -581,8 +608,9 @@ class GraphBuilder():
                 self.ProcessMap()
                 self.PreProcessPlan()
                 print("Pre-Processed; Starting A*")
-                path = self.AStar((4, 0), (8, -4))
-                self.VisualizePlan(path)
+                if self.goalChanged:
+                    path = self.AStar((4, 0), (8, -4))
+                    self.VisualizePlan(path)
                 print('Visualized Plan')
 
 if __name__ == "__main__":
