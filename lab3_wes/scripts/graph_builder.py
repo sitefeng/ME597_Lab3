@@ -405,14 +405,8 @@ class GraphBuilder():
     # Returns Optimal Path
     def AStar(self, start, end):
 
-        # print("self.planning_edges")
-        # print(self.planning_edges)
-
         start_ind = self.GetClosestPlanningPoint(start)
         end_ind = self.GetClosestPlanningPoint(end)
-
-        start_ind = 4
-        end_ind = 87
 
         _ind0, pt0, prevInd0, _cost0 = self.planning_points[start_ind]
         _ind3, pt3, prevInd3, _cost3 = self.planning_points[end_ind]
