@@ -182,7 +182,7 @@ bool CloseToWaypoint(int i)
 
 double AngleLimit(double x)
 {
-	return 2.0 / (1.0 + exp(0.01*x*x));
+	return 2.0 / (1.0 + exp(0.001*x*x));
 }
 
 double ProcessAngle(double x)
@@ -227,10 +227,27 @@ void pose_callback(geometry_msgs::PoseWithCovarianceStamped msg)
 	last_time = ros::Time::now();
 }
 
+void odom_callback(nav_msgs::Odometry msg)
+{
+  float v_forward = msg.twist.linear.x;
+  float w = msg.twist.angular.z;
+}
+
+
 const int num_goals = 3;
 int goal_index = 0;
-double goal_x[num_goals] = {4, 8, 8};
+
+// SIMULATION
+/*
+double goal_x[num_goals] = {4, 8, 8}; // add 0, 1
 double goal_y[num_goals] = {0, -4, 0};
+*/
+
+// REAL
+double goal_x[num_goals] = {1, 3, 4.5}; // add 0, 1
+double goal_y[num_goals] = {3, 3.5, 0.5};
+
+
 
 void SendGoals(int i)
 {
@@ -263,6 +280,7 @@ int main(int argc, char **argv)
 	//ros::Subscriber pose_sub = n.subscribe("/amcl_pose", 5, pose_callback);
     ros::Subscriber pose_sub = n.subscribe("/indoor_pos", 5, pose_callback);
 
+    ros::Subscriber odom_sub = n.subscribe("/odom", 5, odom_callback);
 	//Setup topics to Publish from this node
 	ros::Publisher velocity_publisher = n.advertise<geometry_msgs::Twist>("/cmd_vel_mux/input/navi", 5);
     
@@ -310,10 +328,17 @@ int main(int argc, char **argv)
       //ROS_INFO_STREAM("Grabbing New Waypoint");
 			current_waypoint++;
 
-            if (current_waypoint > waypoints.size())
+            if (current_waypoint >= waypoints.size())
             {
+                ROS_INFO_STREAM("Requesting New Goal");
                 have_waypoints = false;
                 goal_index = goal_index + 1;
+
+                if (goal_index == num_goals)
+                {
+                  goal_index = 0;
+                }
+
                 SendGoals(goal_index);
                 current_waypoint = 0;
             }
@@ -358,6 +383,9 @@ int main(int argc, char **argv)
         }
         else
         {
+          vel.linear.x = 0;
+          vel.angular.z = 0;
+          velocity_publisher.publish(vel);
           ROS_INFO_STREAM("No Waypoints");
         }
 	}
