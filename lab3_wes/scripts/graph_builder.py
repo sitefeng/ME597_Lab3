@@ -581,7 +581,7 @@ class GraphBuilder():
                 self.ProcessMap()
                 self.PreProcessPlan()
                 print("Pre-Processed; Starting A*")
-                path = self.AStar((4, 0), (8, -4))
+                path = self.AStar((0, 4), (8, -4))
                 self.VisualizePlan(path)
                 print('Visualized Plan')
 
