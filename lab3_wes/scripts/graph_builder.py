@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import print_function
+
 import rospy
 import numpy as np
 import math
@@ -6,17 +8,29 @@ import time
 import random
 import Queue
 
+
 import std_msgs.msg
 import geometry_msgs.msg
 import nav_msgs.msg
 import sensor_msgs.msg
 import visualization_msgs.msg
 
+
+class Vertex(object):
+    def __init__(self, index, prevVertex, distToPrev):
+        self.index = index
+        self.prevVertex = prevVertex
+        self.distToPrev = distToPrev
+    
+
+
 class GraphBuilder():
 
     def __init__(self):
+        print("Entered")
         rospy.init_node('graph_builder')
         random.seed()
+        print("Rest of Enter")
 
 
         self.new_point_dist_thresh = 0.45
@@ -37,7 +51,7 @@ class GraphBuilder():
         self.waypoints = [(4, 0), (8, -4), (8, 0)]
         self.edges = []
 
-        self.planning_points = Queue.Queue()
+        self.planning_points = []
         self.planning_edges = []
 
 
@@ -48,16 +62,19 @@ class GraphBuilder():
         self.clear_pub = rospy.Publisher('/visualization_marker', visualization_msgs.msg.Marker, queue_size=5)
         self.plan_pub = rospy.Publisher('/plan', visualization_msgs.msg.Marker, queue_size=5)
 
+        print("Initialized")
+
     def MapCallback(self, msg):
         if self.processed:
             return
+
+        print("New Map")
 
         self.map = msg
         self.meta = msg.info
 
         for i in range(0, len(self.waypoints)):
-            self.waypoints[i][0] = self.waypoints[i][0] + self.meta.origin.position.x
-            self.waypoints[i][1] = self.waypoints[i][1] + self.meta.origin.position.y
+            self.waypoints[i] = (self.waypoints[i][0] + self.meta.origin.position.x, self.waypoints[i][1] + self.meta.origin.position.y)
 
     def ProcessMap(self):
         self.ClearRViz()
@@ -357,7 +374,7 @@ class GraphBuilder():
 
         for pt in self.waypoints:
             # index of point, (x,y), back_trace_index, cost
-            self.planning_points.put((index, pt, -1, 0))
+            self.planning_points.append((index, pt, -1, 0))
 
         self.planning_edges = self.edges
 
@@ -376,7 +393,7 @@ class GraphBuilder():
  
 
     # return true if found
-    def findIndexIn4ValArray(planning_points, indexToFind):
+    def findIndexIn4ValArray(self, planning_points, indexToFind):
 
         for (ind, pt, prevInd, cost) in planning_points:
             if ind == indexToFind:
@@ -388,70 +405,129 @@ class GraphBuilder():
     # Returns Optimal Path
     def AStar(self, start, end):
 
+        # print("self.planning_edges")
+        # print(self.planning_edges)
+
         start_ind = self.GetClosestPlanningPoint(start)
         end_ind = self.GetClosestPlanningPoint(end)
 
-        ind0, pt0, prevInd0, _cost0 = self.planning_points[start_ind]
-        ind3, pt3, prevInd3, _cost3 = self.planning_points[end_ind]
+        start_ind = 4
+        end_ind = 87
 
-        total_set = self.planning_points
+        _ind0, pt0, prevInd0, _cost0 = self.planning_points[start_ind]
+        _ind3, pt3, prevInd3, _cost3 = self.planning_points[end_ind]
+
+        # set of points to avoid duplicate traversal
         closed_set = []
 
-        open_set.append(self.planning_points[start_ind])
-        
-        ####################
-        pQueue = queue.PriorityQueue()
+        ###################################
 
-        curr_ind = start_ind
+        # Initializing AStar Priority Queue
+        curr_vertex = Vertex(start_ind, None, 0)
         curr_dist = 0 # dist to reach current vertex
-        curr_queueCost = distanceBetweenPoints(pt3, pt0)
+        curr_queueCost = self.distanceBetweenPoints(pt3, pt0)
 
-        optimalPath = []
-        optimalPathCost = 0
-        while curr_ind is not end_ind:
+        pQueue = Queue.PriorityQueue()
+        pQueue.put((curr_queueCost, curr_vertex, curr_dist))
+        closed_set.append(curr_vertex)
+
+        print("AStar Initialized")
+        print("AStar traversing from (%.2f,%.2f)[%d] to (%.2f,%.2f)[%d]" % (pt0[0], pt0[1], start_ind, pt3[0], pt3[1], end_ind))
+
+        for xx in range(0, 100000):
+
+            # retrieve from queue
+            curr_queueCost, curr_vertex, curr_dist = pQueue.get()
+            curr_ind = curr_vertex.index
+
+            if curr_ind == end_ind:
+                break
 
             # generate the neighbour node
-            neighbourNodes = GetNeighbours(best_ind)
+            neighbourNodes = self.GetNeighbours(curr_ind)
             
-            ind1, pt1, prevInd1, _cost1 = self.planning_points[best_ind]
+            # Get pt1 the current vertex coordinate
+            _ind1, pt1, _prevInd1, _cost1 = self.planning_points[curr_ind]
 
             # For each neighbour node
             for neighbourNode in neighbourNodes:
-                ind2, pt2, _prevInd2, _cost2 = self.planning_points[neighbourNode]
+                _ind2, pt2, _prevInd2, _cost2 = self.planning_points[neighbourNode]
 
-                if findIndexIn4ValArray(closed_set, ind2):
+                if neighbourNode in closed_set:
                     continue
 
-                distToGoal = distanceBetweenPoints(pt3, pt2)
+                distToGoal = self.distanceBetweenPoints(pt3, pt2)
 
                 # SET COST
-                heuristicOfNeighbour = distToGoal2
-
-                distToNeighbour = distanceBetweenPoints(pt2, pt1)
-
-                cost = heuristicOfNeighbour + distToNeighbour
-
-                if cost < lowestCost:
-                    lowestCost = cost
-                    lowestIndex = ind2
+                heuristicOfNeighbour = distToGoal
+                distToNeighbour = self.distanceBetweenPoints(pt2, pt1)
 
 
+                # Put NEXT path on priority queue
+                next_queueCost = heuristicOfNeighbour + distToNeighbour + curr_dist
+                next_vertex = Vertex(neighbourNode, curr_vertex, distToNeighbour)
                 next_dist = distToNeighbour + curr_dist
-                pQueue.put((queueCost, ind2, next_dist))
+                pQueue.put((next_queueCost, next_vertex, next_dist))
 
-                #put in closed_set
-                closed_set.put((ind2, pt2, _prevInd2, _cost2))
+                # Put in closed_set
+                closed_set.append(neighbourNode)
             
-            # Get curr_ind for next loop
-            curr_queueCost, curr_ind, curr_dist = pQueue.get()
-            optimalPathCost.put(curr_ind)
-            optimalPathCost += cost
+            
+            ## End For
+            print("AStar vertex processed: [%d]" % curr_ind)
 
         ### End While
 
-        print("Found Optimal Path with cost of [%d]" % optimalPathCost)
+        if curr_ind != end_ind:
+            print("Path could not be found")
+
+        # Find the optimal path through back trace
+        optimalPath = []
+        optimalPathCost = 0
+
+        opt_curr_vertex = curr_vertex
+        while opt_curr_vertex is not None:
+
+            optimalPath.insert(0, opt_curr_vertex.index)
+            optimalPathCost += opt_curr_vertex.distToPrev
+
+            opt_curr_vertex = opt_curr_vertex.prevVertex
+        
+        print("\n")
+        print("-------------------------------------------------")
+        print('\x1b[6;30;42m' + "Found Optimal Path with cost of [%d]" % optimalPathCost + '\x1b[0m')
+        print("OptimalPath: [")
+        for index in optimalPath:
+            print("%d, " % index, end='')
+        print("]")
+        print("-------------------------------------------------")
+        print("\n\n")
 
         return optimalPath
+
+
+    def distanceBetweenPoints(self, pt1, pt2):
+        distToGoal_x = pt2[0] - pt1[0]
+        distToGoal_y = pt2[1] - pt1[1]
+
+        distToGoal = math.sqrt(distToGoal_x**2 + distToGoal_y**2)
+        return distToGoal
+    
+
+
+    def GetNeighbours(self, ind):
+
+        neighbourNodes = []
+        # search through all the edges linked to the current point
+        for x, y in self.planning_edges:
+
+            if x == ind:
+                neighbourNodes.append(y)
+            elif y == ind:
+                neighbourNodes.append(x)
+
+        return neighbourNodes
+
 
     def VisualizePlan(self, path):
         msg = visualization_msgs.msg.Marker()
@@ -488,7 +564,7 @@ class GraphBuilder():
             point = geometry_msgs.msg.Point
             point.x = wp[1][0]
             point.y = wp[1][1]
-            point.z = 0.2s
+            point.z = 0.2
 
             marker.points.append(point)
 
@@ -496,37 +572,15 @@ class GraphBuilder():
 
         self.plans_pub.publish(msg)
 
-
-    def distanceBetweenPoints(pt1, pt2):
-        distToGoal_x = pt2[0] - pt1[0]
-        distToGoal_y = pt2[1] - pt1[1]
-
-        distToGoal = sqrt(distToGoal_x**2 + distToGoal_y**2)
-        return distToGoal
-    }
-
-
-    def GetNeighbours(self, ind):
-
-        neighbourNodes = []
-        # search through all the edges linked to the current point
-        for (x, y) in self.planning_edges:
-
-            if x == ind:
-                neighbourNodes.put(y)
-            else if y == ind:
-                neighbourNodes.put(x)
-
-        return neighbourNodes
-
-
-
     def main(self):
         while not rospy.is_shutdown():
             time.sleep(0.2)
 
             if (self.map is not None) and (not self.processed):
                 self.ProcessMap()
+                self.PreProcessPlan()
+                print("Pre-Processed; Starting A*")
+                self.AStar((4-1, 0-5), (8-1, -4-5))
 
 if __name__ == "__main__":
     
