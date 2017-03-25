@@ -25,8 +25,8 @@
 const double pi = 3.141592;
 const double pi2 = 2.0*pi;
 
-const double max_pos_cmd = 1;
-const double max_ang_cmd = 1;
+const double max_pos_cmd = 0.5;
+const double max_ang_cmd = 0.15;
 
 
 double est_x;
@@ -141,6 +141,7 @@ class PID
           double u = Kp*val + Kd*dx + Ki*I;
           
           u = Saturate(u, sat);
+          ROS_INFO_STREAM("PID VAL " << val << ", CMD " <<u << ", dt " << dt);
           return u;
       }
       
@@ -226,10 +227,10 @@ void pose_callback(geometry_msgs::PoseWithCovarianceStamped msg)
 	last_time = ros::Time::now();
 }
 
-const int num_goals = 4;
+const int num_goals = 3;
 int goal_index = 0;
-double goal_x[num_goals] = {0, 0, 0, 0};
-double goal_y[num_goals] = {0, 0, 0, 0};
+double goal_x[num_goals] = {4, 8, 8};
+double goal_y[num_goals] = {0, -4, 0};
 
 void SendGoals(int i)
 {
@@ -267,7 +268,7 @@ int main(int argc, char **argv)
     
     goal_pub = n.advertise<geometry_msgs::PoseArray>("/goal", 5);
 
-    ros::Subscriber plan_sub = n.subscribe("/plan", 5, PlanCallback);
+    ros::Subscriber plan_sub = n.subscribe("/plan_array", 5, PlanCallback);
 
 	//Velocity control variable
 	geometry_msgs::Twist vel;
@@ -314,6 +315,7 @@ int main(int argc, char **argv)
                 have_waypoints = false;
                 goal_index = goal_index + 1;
                 SendGoals(goal_index);
+                current_waypoint = 0;
             }
 		}
 
@@ -321,7 +323,7 @@ int main(int argc, char **argv)
         {
           //ROS_INFO_STREAM("Have WP; Processing");
     		ros::Time now = ros::Time::now();
-    		double dt = (now - last_time).sec + (now - last_time).nsec/1000000000.0;
+    		double dt = 0.1;
 
     		double goal_x = waypoints[current_waypoint].x;
     		double goal_y = waypoints[current_waypoint].y;

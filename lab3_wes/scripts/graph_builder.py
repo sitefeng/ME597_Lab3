@@ -50,7 +50,7 @@ class GraphBuilder():
         #Start and Goal
         self.startPoint = (0,0)
         self.endPoint = (0,0)
-        self.goalChanged = True
+        self.goalChanged = False
 
         self.occupied = []
         self.waypoints = [(4, 0), (8, -4), (8, 0)]
@@ -67,10 +67,10 @@ class GraphBuilder():
         # for visualization
         self.plan_pub = rospy.Publisher('/plan', visualization_msgs.msg.Marker, queue_size=5)
         # For plan path
-        self.plan_array_pub = rospy.Publisher('/plan_array', geometry_msg.PoseArray, queue_size=5)
+        self.plan_array_pub = rospy.Publisher('/plan_array', geometry_msgs.msg.PoseArray, queue_size=5)
 
         self.map_sub = rospy.Subscriber('/map', nav_msgs.msg.OccupancyGrid, callback=self.MapCallback)
-        self.goal_sub = rospy.Subscriber('/goal', geometry_msg.PoseArray, callback=self.GoalCallback)
+        self.goal_sub = rospy.Subscriber('/goal', geometry_msgs.msg.PoseArray, callback=self.GoalCallback)
 
         print("Initialized")
 
@@ -94,17 +94,13 @@ class GraphBuilder():
         point1 = (msg.poses[0].position.x, msg.poses[0].position.y)
         point2 = (msg.poses[1].position.x, msg.poses[1].position.y)
 
-        if point1.x == self.startPoint.x and
-           point1.y == self.startPoint.y and
-           point2.x == self.endPoint.x and
-           point2.y == self.endPoint.y:
+ 
+        self.goalChanged = True
+        self.startPoint = point1
+        self.endPoint = point2
 
-            self.goalChanged = False
-            
-        else:
-            self.goalChanged = True
-            self.startPoint = point1
-            self.endPoint = point2
+        print(self.startPoint)
+        print(self.endPoint)
 
 
     def ProcessMap(self):
@@ -441,7 +437,7 @@ class GraphBuilder():
 
     # Returns Optimal Path
     def AStar(self, start, end):
-
+        print("Starting A*")
         start_ind = self.GetClosestPlanningPoint(start)
         end_ind = self.GetClosestPlanningPoint(end)
 
@@ -534,6 +530,7 @@ class GraphBuilder():
         print("-------------------------------------------------")
         print("\n\n")
 
+        self.goalChanged = False
         return optimalPath
 
 
@@ -602,12 +599,13 @@ class GraphBuilder():
 
     def PublishPath(self, path):
 
-        pose_array_msg = geometry_msgs.PoseArray()
+        pose_array_msg = geometry_msgs.msg.PoseArray()
         pose_array = []
-        for pt in path:
-            curr_pose = geometry_msgs.Pose()
-            curr_pose.position.x = pt.x
-            curr_pose.position.y = pt.y
+        for p in path:
+            pt = self.planning_points[p][1]
+            curr_pose = geometry_msgs.msg.Pose()
+            curr_pose.position.x = pt[0]
+            curr_pose.position.y = pt[1]
 
             pose_array.append(curr_pose)
 
@@ -623,15 +621,16 @@ class GraphBuilder():
 
             if (self.map is not None) and (not self.processed):
                 self.ProcessMap()
-                self.PreProcessPlan()
+                
                 print("Pre-Processed; Starting A*")
 
-                if self.goalChanged:
-                    path = self.AStar(self.startPoint, self.endPoint)
-                    self.VisualizePlan(path)
-                    
-                    self.PublishPath(path)
-                    print('Visualized Plan')
+            if self.goalChanged and self.processed:
+                self.PreProcessPlan()
+                path = self.AStar(self.startPoint, self.endPoint)
+                self.VisualizePlan(path)
+                
+                self.PublishPath(path)
+                print('Visualized Plan')
 
 if __name__ == "__main__":
     
