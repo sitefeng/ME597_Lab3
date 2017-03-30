@@ -205,7 +205,7 @@ bool CloseToWaypoint(int i)
 
 double AngleLimit(double x)
 {
-	return 2.0 / (1.0 + exp(0.001*x*x));
+	return 2.0 / (1.0 + exp(0.0005*x*x));
 }
 
 double ProcessAngle(double x)
@@ -267,14 +267,14 @@ const int num_goals = 3;
 int goal_index = 0;
 
 // SIMULATION
-/*
+
 double goal_x[num_goals] = {4, 8, 8}; // add 0, 1
 double goal_y[num_goals] = {0, -4, 0};
-*/
+
 
 // REAL
-double goal_x[num_goals] = {1, 3, 4.5}; // add 0, 1
-double goal_y[num_goals] = {3, 3.5, 0.5};
+//double goal_x[num_goals] = {1, 3, 4.5}; // add 0, 1
+//double goal_y[num_goals] = {3, 3.5, 0.5};
 
 
 
