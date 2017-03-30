@@ -435,74 +435,81 @@ class GraphBuilder():
         return False
 
 
-    # Returns Optimal Path
+    # *******************************
+    # @param starting point coordinates
+    # @param goal point coordinates 
+    # @returns the Optimal Path list as integer vertex indices
+    # *******************************
     def AStar(self, start, end):
         print("Starting A*")
+
+        # Get integer vertex indices for start and goal
         start_ind = self.GetClosestPlanningPoint(start)
         end_ind = self.GetClosestPlanningPoint(end)
 
+        # Get approximated coordinates for start and goal
         _ind0, pt0, prevInd0, _cost0 = self.planning_points[start_ind]
         _ind3, pt3, prevInd3, _cost3 = self.planning_points[end_ind]
 
-        # set of points to avoid duplicate traversal
+        # List of points to avoid duplicate traversal
         closed_set = []
 
-        ###################################
-
-        # Initializing AStar Priority Queue
+        # *********************************
+        # Initializing AStar Algorithm
         curr_vertex = Vertex(start_ind, None, 0)
-        curr_dist = 0 # dist to reach current vertex
+        # Distance to reach current vertex from start vertex
+        curr_dist = 0 
         curr_queueCost = self.distanceBetweenPoints(pt3, pt0)
 
         pQueue = Queue.PriorityQueue()
         pQueue.put((curr_queueCost, curr_vertex, curr_dist))
         closed_set.append(curr_vertex)
 
-        print("AStar Initialized")
-        print("AStar traversing from (%.2f,%.2f)[%d] to (%.2f,%.2f)[%d]" % (pt0[0], pt0[1], start_ind, pt3[0], pt3[1], end_ind))
+        print("AStar Initialized\n")
+        print("AStar traversing from (%.2f,%.2f)[%d] to (%.2f,%.2f)[%d]\n" % (pt0[0], pt0[1], start_ind, pt3[0], pt3[1], end_ind))
 
-        for xx in range(0, 100000):
+        for _ in range(0, 100000):
 
-            # retrieve from queue
+            # Retrieve current vertex info from priority queue
             curr_queueCost, curr_vertex, curr_dist = pQueue.get()
             curr_ind = curr_vertex.index
 
             if curr_ind == end_ind:
                 break
 
-            # generate the neighbour node
+            # Generate the neighbour vertices
             neighbourNodes = self.GetNeighbours(curr_ind)
             
-            # Get pt1 the current vertex coordinate
+            # Get the current vertex euler coordinate
             _ind1, pt1, _prevInd1, _cost1 = self.planning_points[curr_ind]
 
-            # For each neighbour node
+            # For each neighbouring vertex
             for neighbourNode in neighbourNodes:
+                # Get the current neighbour vertex euler coordinate
                 _ind2, pt2, _prevInd2, _cost2 = self.planning_points[neighbourNode]
 
+                # If aleady calculated, skip
                 if neighbourNode in closed_set:
                     continue
 
+                # AStar Heuristics Calculations
                 distToGoal = self.distanceBetweenPoints(pt3, pt2)
 
-                # SET COST
                 heuristicOfNeighbour = distToGoal
                 distToNeighbour = self.distanceBetweenPoints(pt2, pt1)
 
-
-                # Put NEXT path on priority queue
+                # Add neighbour to priority queue
                 next_queueCost = heuristicOfNeighbour + distToNeighbour + curr_dist
                 next_vertex = Vertex(neighbourNode, curr_vertex, distToNeighbour)
                 next_dist = distToNeighbour + curr_dist
                 pQueue.put((next_queueCost, next_vertex, next_dist))
 
-                # Put in closed_set
+                # Put in closed_set, mark as traversed
                 closed_set.append(neighbourNode)
-            
-            
-            ## End For
-            print("AStar vertex processed: [%d]" % curr_ind)
 
+            print("AStar vertex processed: [%d]" % curr_ind)
+            ## End For
+            
         ### End While
 
         if curr_ind != end_ind:
@@ -520,6 +527,7 @@ class GraphBuilder():
 
             opt_curr_vertex = opt_curr_vertex.prevVertex
         
+        # Print out Optimal Path
         print("\n")
         print("-------------------------------------------------")
         print('\x1b[6;30;42m' + "Found Optimal Path with cost of [%d]" % optimalPathCost + '\x1b[0m')
@@ -534,6 +542,11 @@ class GraphBuilder():
         return optimalPath
 
 
+    # ******************************************
+    # @param first point euler coordinates
+    # @param second point euler coordinates
+    # @returns euler distance between two points
+    # ******************************************
     def distanceBetweenPoints(self, pt1, pt2):
         distToGoal_x = pt2[0] - pt1[0]
         distToGoal_y = pt2[1] - pt1[1]
@@ -542,7 +555,10 @@ class GraphBuilder():
         return distToGoal
     
 
-
+    # ******************************************
+    # @param index of a vertex on the graph
+    # @returns list of all neighbour vertex indices
+    # ******************************************
     def GetNeighbours(self, ind):
 
         neighbourNodes = []
@@ -556,7 +572,10 @@ class GraphBuilder():
 
         return neighbourNodes
 
-
+    # *****************************************
+    # Publishes optimal path visualization markers for rviz
+    # @param optimal list of vertex to traverse on graph
+    # *****************************************
     def VisualizePlan(self, path):
         msg = visualization_msgs.msg.Marker()
         mark_index = 0
@@ -597,6 +616,10 @@ class GraphBuilder():
 
         self.plan_pub.publish(msg)
 
+    # *****************************************
+    # Publishes optimal path as a geometry_msgs.msg.PoseArray
+    # @param optimal list of vertex to traverse on graph
+    # *****************************************
     def PublishPath(self, path):
 
         pose_array_msg = geometry_msgs.msg.PoseArray()
