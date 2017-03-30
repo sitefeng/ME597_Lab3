@@ -32,7 +32,7 @@ class GraphBuilder():
         random.seed()
         print("Rest of Enter")
 
-
+        # Parameters to change graph
         self.new_point_dist_thresh = 0.45
         self.dist_thresh = 0.35
         self.check_thresh = 0.25
@@ -52,14 +52,17 @@ class GraphBuilder():
         self.endPoint = (0,0)
         self.goalChanged = False
 
+        # Graph elements
         self.occupied = []
         self.waypoints = [(4, 0), (8, -4), (8, 0)]
         self.edges = []
 
+        # For planning
         self.planning_points = []
         self.planning_edges = []
 
 
+        # Communication
         self.occ_pub = rospy.Publisher('/occupied_points', visualization_msgs.msg.MarkerArray, queue_size=5)
         self.wp_pub = rospy.Publisher('/waypoints', visualization_msgs.msg.MarkerArray, queue_size=5)
         self.edge_pub = rospy.Publisher('/edges', visualization_msgs.msg.MarkerArray, queue_size=5)
@@ -80,7 +83,7 @@ class GraphBuilder():
             return
 
         print("New Map")
-
+        # Store map data locally
         self.map = msg
         self.meta = msg.info
 
@@ -94,7 +97,7 @@ class GraphBuilder():
         point1 = (msg.poses[0].position.x, msg.poses[0].position.y)
         point2 = (msg.poses[1].position.x, msg.poses[1].position.y)
 
- 
+        # Change goal and current pos to start a new plan
         self.goalChanged = True
         self.startPoint = point1
         self.endPoint = point2
@@ -104,6 +107,7 @@ class GraphBuilder():
 
 
     def ProcessMap(self):
+        # Go through steps to create the graph, and get ready for planning
         self.ClearRViz()
         print("Clearing")
         time.sleep(1)
@@ -121,6 +125,7 @@ class GraphBuilder():
         self.processed = True
 
     def ClearRViz(self):
+        # Call this to try and get rid of other PRM map markers on rviz, from prev runs
         marker = visualization_msgs.msg.Marker()
         marker.header.frame_id = '/my_frame'
         marker.header.stamp = rospy.Time.now()
@@ -144,6 +149,7 @@ class GraphBuilder():
         return x, y
 
     def GetOccupiedPoints(self):
+        # Build a visualization array
         msg = visualization_msgs.msg.MarkerArray()
         mark_index = 0
         stamp = rospy.Time.now()
@@ -159,6 +165,7 @@ class GraphBuilder():
         color.b = 0
         color.a = 1.0
 
+        # Go through map by indices
         for j in range(0, self.meta.width):
             for i in range(0, self.meta.height):
 
@@ -166,11 +173,13 @@ class GraphBuilder():
 
                 #print(self.map.data[index])
                 if self.map.data[index] > self.occ_thresh:
-                    x, y = self.GridToPoint(i, j)
 
+                    # find pos of occupied point, and add to list of points
+                    x, y = self.GridToPoint(i, j)
                     self.occupied.append((x,y))
                     #print("%f %f" % (x, y))
 
+                    # Make a marker for each point
                     marker = visualization_msgs.msg.Marker()
                     marker.header.frame_id = '/my_frame'
                     marker.header.stamp = stamp
@@ -200,12 +209,14 @@ class GraphBuilder():
 
     def GetWaypoints(self):
 
+        # Create a set number of waypoints
         num_waypoints = 0
         while num_waypoints < self.num_waypoints:
 
             i = random.randint(0, self.meta.height)
             j = random.randint(0, self.meta.width)
 
+            # Coords of  random point
             x, y = self.GridToPoint(i, j)
 
             if self.CheckCollision(x, y):
@@ -224,6 +235,7 @@ class GraphBuilder():
 
 
     def ViewWaypoints(self, ns='waypoints', z=0.05, s=0.05):
+        # create Viz msg
         msg = visualization_msgs.msg.MarkerArray()
         mark_index = 0
         stamp = rospy.Time.now()
@@ -239,6 +251,7 @@ class GraphBuilder():
         color.b = 1
         color.a = 1.0
 
+        # Add each waypoint (node in graph) to vis message via a marker
         for wp in self.waypoints:
             marker = visualization_msgs.msg.Marker()
             marker.header.frame_id = '/my_frame'
@@ -267,34 +280,41 @@ class GraphBuilder():
 
     def GetEdges(self):
 
+        # Attempt to create edges from each waypoint/node
         start_index = -1
         for start in self.waypoints:
             start_index = start_index + 1
 
             neighbours = []
 
+            # Attempt to create an edge a certain number of times
             for iteration in range(0, self.nn):
                 min_dist = 999
                 min_index = -1
 
                 end_index = -1
+                # Go through list of all other waypoints
                 for end in self.waypoints:
                     end_index = end_index + 1
 
+                    # Check to see if htis edges has been created, or was a failure before
                     if end not in neighbours and end is not start:
                         dist = self.SquareDist(start, end)
                         if dist < min_dist:
+                            # Point is closest point, and valid for an edge; Track
                             min_dist = dist
                             min_index = end_index
 
                     else:
                         pass # Points is already checked or is start
 
+                # Mark final point, and add to list of points hwich have been checked
                 end = self.waypoints[min_index]
                 neighbours.append(end)
 
+                # Check for collisions in edge
                 if self.CheckLine(start, end):
-                    self.edges.append((start_index, min_index))
+                    self.edges.append((start_index, min_index)) # Store indices of each point of the edge
                     #print("Added Edge")
             '''
             print("Start: ")
@@ -304,6 +324,7 @@ class GraphBuilder():
             '''
 
     def ViewEdges(self):
+        # Create messgae to view
         msg = visualization_msgs.msg.MarkerArray()
         mark_index = 0
         stamp = rospy.Time.now()
@@ -319,6 +340,7 @@ class GraphBuilder():
         color.b = 1
         color.a = 1.0
 
+        # Create a marker with 2 points per marker (start, end) for each edge
         for edge in self.edges:
 
             start = self.waypoints[edge[0]]
@@ -364,6 +386,7 @@ class GraphBuilder():
 
     def CheckLine(self, p1, p2):
 
+        # First, see if points are the same
         dx = p1[0] - p2[0]
         dy = p1[1] - p2[1]
         dist = math.sqrt(dx*dx + dy*dy)
@@ -374,7 +397,7 @@ class GraphBuilder():
             alpha = [1]
 
 
-
+        # Interpolate positions between points; check each for distance from collisions
         for a in alpha:
             x = p1[0] + (p2[0] - p1[0])*a
             y = p1[1] + (p2[1] - p1[1])*a
@@ -387,6 +410,8 @@ class GraphBuilder():
 
     def CheckCollision(self, x, y):
 
+        # Iterate through all occupied points; check distance from all
+        # Exit when only 1 occ point too close is found
         for pt in self.occupied:
             dx = pt[0] - x
             dy = pt[1] - y
@@ -399,7 +424,8 @@ class GraphBuilder():
         return True
 
     def PreProcessPlan(self):
-
+        # Not sure if still used/needed
+        # Intended to create data types to be stored for search
         index = 0
 
         for pt in self.waypoints:
