@@ -33,6 +33,7 @@ class GraphBuilder():
         print("Rest of Enter")
 
         # Parameters to change graph
+        # These are for simulation; Set new parameters for experiment
         self.new_point_dist_thresh = 0.45
         self.dist_thresh = 0.35
         self.check_thresh = 0.25
